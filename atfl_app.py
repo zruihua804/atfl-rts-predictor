@@ -62,27 +62,21 @@ def build_model():
 model, scaler = build_model()
 
 # ── Google Sheets ─────────────────────────────────────────────────────────────
-@st.cache_resource
 def get_sheet():
-    try:
-        scopes = ["https://www.googleapis.com/auth/spreadsheets",
-                  "https://www.googleapis.com/auth/drive"]
-        creds  = Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"], scopes=scopes)
-        client = gspread.authorize(creds)
-        return client.open_by_key(st.secrets["sheets"]["atfl_spreadsheet_id"]).sheet1
-    except:
-        return None
+    scopes = ["https://www.googleapis.com/auth/spreadsheets",
+              "https://www.googleapis.com/auth/drive"]
+    creds  = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=scopes)
+    client = gspread.authorize(creds)
+    return client.open_by_key(st.secrets["sheets"]["atfl_spreadsheet_id"]).sheet1
 
 def save_to_sheets(row):
-    sheet = get_sheet()
-    if sheet is None:
-        return False
     try:
+        sheet = get_sheet()
         sheet.append_row(row)
-        return True
-    except:
-        return False
+        return True, None
+    except Exception as e:
+        return False, str(e)
 
 # ── 患者信息 ──────────────────────────────────────────────────────────────────
 st.divider()
@@ -218,10 +212,11 @@ if st.button("💾 保存到数据库" if zh else "💾 Save to Database", type=
                mri_grade.split("—")[0].strip(),
                round(prob_pct, 1),
                level.replace("✅ ","").replace("⚠️ ","").replace("❌ ","")]
-        if save_to_sheets(row):
+        success, error = save_to_sheets(row)
+        if success:
             st.success("✅ 已成功保存！" if zh else "✅ Successfully saved!")
         else:
-            st.warning("数据库未配置，记录未保存。" if zh else "Database not configured. Record not saved.")
+            st.error(f"❌ 保存失败：{error}")
 
 # ── 报告导出 ──────────────────────────────────────────────────────────────────
 report_text = f"""
